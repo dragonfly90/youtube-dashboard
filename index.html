@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Interest Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>" />
+  <script type="module" crossorigin src="/youtube-dashboard/assets/index-DgBvK83Z.js"></script>
+  <link rel="stylesheet" crossorigin href="/youtube-dashboard/assets/index-E2TdRE6p.css">
+</head>
+<body>
+  <nav id="main-nav">
+    <div class="nav-brand">
+      <span class="brand-icon">📊</span>
+      <span class="brand-text">YouTube Interests</span>
+    </div>
+    <button id="nav-toggle" class="nav-toggle" aria-label="Toggle menu">&#9776;</button>
+    <ul class="nav-links">
+      <li><a href="#overview" class="nav-link active" data-section="overview">Overview</a></li>
+      <li><a href="#timeline" class="nav-link" data-section="timeline">Timeline</a></li>
+      <li><a href="#clusters" class="nav-link" data-section="clusters">Clusters</a></li>
+      <li><a href="#channels" class="nav-link" data-section="channels">Channels</a></li>
+      <li><a href="#trends" class="nav-link" data-section="trends">Trends</a></li>
+      <li><a href="#recs" class="nav-link" data-section="recs">Recommendations</a></li>
+    </ul>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+      <span class="theme-icon-dark">&#9790;</span>
+      <span class="theme-icon-light">&#9728;</span>
+    </button>
+  </nav>
+
+  <main id="app">
+    <section id="section-overview" class="section active"></section>
+    <section id="section-timeline" class="section"></section>
+    <section id="section-clusters" class="section"></section>
+    <section id="section-channels" class="section"></section>
+    <section id="section-trends" class="section"></section>
+    <section id="section-recs" class="section"></section>
+  </main>
+
+</body>
+</html>
