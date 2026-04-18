@@ -4,6 +4,20 @@ import { CLUSTER_MAP, CLUSTERS } from '../classifier.js';
 let sortKey = 'count';
 let sortDir = -1; // -1 = descending
 
+/** Resolve cluster metadata: prefer dynamic LLM meta, fall back to hardcoded */
+function getMeta(id) {
+  return getState().clusterMeta?.[id] || CLUSTER_MAP[id] || { id, label: id, emoji: '', color: '#94a3b8' };
+}
+
+/** Get the list of clusters for the filter dropdown (dynamic or hardcoded) */
+function getClusterList() {
+  const dynamicMeta = getState().clusterMeta;
+  if (dynamicMeta) {
+    return Object.values(dynamicMeta).filter(c => c.id !== 'other');
+  }
+  return CLUSTERS;
+}
+
 export function renderChannels(container) {
   container.innerHTML = `
     <div class="section-header">
@@ -40,16 +54,18 @@ export function renderChannels(container) {
 
 function setupFilter() {
   const select = document.getElementById('channel-cluster-filter');
-  CLUSTERS.forEach(c => {
+  const clusterList = getClusterList();
+  clusterList.forEach(c => {
     const opt = document.createElement('option');
     opt.value = c.id;
-    opt.textContent = c.emoji + ' ' + c.label;
+    opt.textContent = (c.emoji || '') + ' ' + c.label;
     select.appendChild(opt);
   });
   // Add "other"
   const opt = document.createElement('option');
   opt.value = 'other';
-  opt.textContent = '\u{1F4E6} Other / Uncategorized';
+  const otherMeta = getMeta('other');
+  opt.textContent = (otherMeta.emoji || '\u{1F4E6}') + ' ' + otherMeta.label;
   select.appendChild(opt);
 
   select.addEventListener('change', () => {
@@ -93,13 +109,13 @@ function draw() {
 
   const body = document.getElementById('channels-body');
   body.innerHTML = channels.slice(0, 100).map((ch, i) => {
-    const meta = CLUSTER_MAP[ch.cluster];
-    const color = meta?.color || '#94a3b8';
+    const meta = getMeta(ch.cluster);
+    const color = meta.color;
     return `
       <tr>
         <td>${i + 1}</td>
         <td>${escapeHtml(ch.name)}</td>
-        <td><span class="cluster-badge" style="background:${color}22;color:${color}">${meta?.emoji || ''} ${meta?.label || ch.cluster}</span></td>
+        <td><span class="cluster-badge" style="background:${color}22;color:${color}">${meta.emoji || ''} ${meta.label || ch.cluster}</span></td>
         <td>${ch.count.toLocaleString()}</td>
         <td>${ch.recent90d.toLocaleString()}</td>
       </tr>

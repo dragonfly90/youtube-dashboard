@@ -2,6 +2,11 @@ import { getState, setState, onStateChange } from '../main.js';
 import { CLUSTER_MAP } from '../classifier.js';
 import { createDoughnut, createHorizontalBar } from '../utils/charts.js';
 
+/** Resolve cluster metadata: prefer dynamic LLM meta, fall back to hardcoded */
+function getMeta(id) {
+  return getState().clusterMeta?.[id] || CLUSTER_MAP[id] || { id, label: id, emoji: '', color: '#94a3b8' };
+}
+
 export function renderClusters(container) {
   container.innerHTML = `
     <div class="section-header">
@@ -29,11 +34,11 @@ function draw() {
 
   const clusters = data.clusters;
   const labels = clusters.map(c => {
-    const meta = CLUSTER_MAP[c.id];
-    return (meta?.emoji || '') + ' ' + c.label;
+    const meta = getMeta(c.id);
+    return (meta.emoji || '') + ' ' + c.label;
   });
   const values = clusters.map(c => c.count);
-  const colors = clusters.map(c => CLUSTER_MAP[c.id]?.color || '#94a3b8');
+  const colors = clusters.map(c => getMeta(c.id).color);
 
   const handleClick = (_evt, elements) => {
     if (!elements.length) {
@@ -62,10 +67,10 @@ function draw() {
   const info = document.getElementById('cluster-filter-info');
   const active = getState().activeCluster;
   if (active) {
-    const meta = CLUSTER_MAP[active];
+    const meta = getMeta(active);
     info.innerHTML = `
       <span class="data-source" style="cursor:pointer" id="clear-cluster-filter">
-        Filtered: ${meta?.emoji || ''} ${meta?.label || active}
+        Filtered: ${meta.emoji || ''} ${meta.label || active}
         <span style="margin-left:0.5rem">&times;</span>
       </span>
     `;

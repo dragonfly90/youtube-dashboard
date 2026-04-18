@@ -83,6 +83,7 @@ function parseDate(dateStr) {
 self.onmessage = function(e) {
   try {
     const html = e.data.html;
+    const mode = e.data.mode || 'full'; // 'full' (default) or 'parse-only'
     self.postMessage({ type: 'progress', pct: 0, msg: 'Splitting HTML blocks...' });
 
     // Extract outer-cell blocks
@@ -132,13 +133,18 @@ self.onmessage = function(e) {
       });
     }
 
-    self.postMessage({ type: 'progress', pct: 92, msg: 'Aggregating statistics...' });
-
-    // Aggregate same structure as preloaded.json
     if (videos.length === 0) {
       self.postMessage({ type: 'error', msg: 'No watch entries found in the HTML file.' });
       return;
     }
+
+    // parse-only mode: return raw videos without classification/aggregation
+    if (mode === 'parse-only') {
+      self.postMessage({ type: 'done-raw', videos });
+      return;
+    }
+
+    self.postMessage({ type: 'progress', pct: 92, msg: 'Aggregating statistics...' });
 
     videos.sort((a, b) => a.dt - b.dt);
     const earliest = new Date(videos[0].dt);

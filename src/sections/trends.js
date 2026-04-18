@@ -2,6 +2,11 @@ import { getState, onStateChange } from '../main.js';
 import { CLUSTER_MAP } from '../classifier.js';
 import { drawSparkline } from '../utils/charts.js';
 
+/** Resolve cluster metadata: prefer dynamic LLM meta, fall back to hardcoded */
+function getMeta(id) {
+  return getState().clusterMeta?.[id] || CLUSTER_MAP[id] || { id, label: id, emoji: '', color: '#94a3b8' };
+}
+
 export function renderTrends(container) {
   container.innerHTML = `
     <div class="section-header">
@@ -27,7 +32,7 @@ function draw() {
   const clusters = data.clusters.filter(c => c.id !== 'other');
 
   grid.innerHTML = clusters.map(c => {
-    const meta = CLUSTER_MAP[c.id] || {};
+    const meta = getMeta(c.id);
     const allTimeShare = total > 0 ? (c.count / total) : 0;
     const recentShare = totalRecent > 0 ? (c.recent90d / totalRecent) : 0;
 
@@ -73,7 +78,7 @@ function draw() {
       if (!canvas) return;
       const monthly = c.monthly || [];
       const last6 = monthly.slice(-6).map(m => m.count);
-      const color = CLUSTER_MAP[c.id]?.color || '#94a3b8';
+      const color = getMeta(c.id).color;
       drawSparkline(canvas, last6, color);
     });
   });

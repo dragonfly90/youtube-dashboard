@@ -1,15 +1,18 @@
 import './style.css';
 import preloadedData from './data/preloaded.json';
 import { refreshChartTheme } from './utils/charts.js';
+import { checkOllamaAvailable } from './llm.js';
 
 // ============================================================
 // State management
 // ============================================================
 const state = {
   data: preloadedData,
-  dataSource: 'preloaded',
+  dataSource: 'preloaded',       // 'preloaded' | 'uploaded' | 'uploaded-llm'
   activeCluster: null,
   currentSection: 'overview',
+  clusterMeta: null,             // {id: {id, label, emoji, color}} — null for preloaded
+  llmRecommendations: null,      // {youtube, bilibili, reddit, ...} — null for preloaded
 };
 
 // Listeners are keyed by section name so we can clean them up on re-render
@@ -146,3 +149,4 @@ themeToggle.addEventListener('click', () => {
 // Init
 // ============================================================
 handleHash();
+checkOllamaAvailable(); // fire-and-forget; overview.js observes status

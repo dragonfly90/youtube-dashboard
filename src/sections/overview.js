@@ -1,4 +1,8 @@
 import { getState, onStateChange } from '../main.js';
+import { getLlmStatus, onLlmStatusChange } from '../llm.js';
+import { runLlmPipeline } from '../llm-pipeline.js';
+
+let llmEnabled = true; // user toggle, default on
 
 export function renderOverview(container) {
   container.innerHTML = `
@@ -8,6 +12,7 @@ export function renderOverview(container) {
     </div>
     <div id="data-source-indicator"></div>
     <div class="card-grid" id="stat-cards"></div>
+    <div id="llm-status-area"></div>
     <div class="upload-zone" id="upload-zone">
       <div class="upload-icon">📁</div>
       <div class="upload-title">Upload your own Takeout data</div>
@@ -25,7 +30,56 @@ export function renderOverview(container) {
 
   updateStats();
   onStateChange(updateStats);
+  updateLlmStatus(getLlmStatus());
+  onLlmStatusChange(updateLlmStatus);
   setupUpload();
+}
+
+function updateLlmStatus(status) {
+  const area = document.getElementById('llm-status-area');
+  if (!area) return;
+
+  if (status === 'checking') {
+    area.innerHTML = `
+      <div class="llm-status llm-checking">
+        <span class="llm-spinner"></span>
+        <span>Checking for local AI (Ollama)...</span>
+      </div>
+    `;
+  } else if (status === 'available') {
+    area.innerHTML = `
+      <div class="llm-status llm-available">
+        <span class="llm-dot available"></span>
+        <span>Local AI available (Gemma 4)</span>
+        <label class="llm-toggle">
+          <input type="checkbox" id="llm-toggle-input" ${llmEnabled ? 'checked' : ''} />
+          <span class="llm-toggle-slider"></span>
+          <span class="llm-toggle-label">Use AI-powered classification</span>
+        </label>
+      </div>
+    `;
+    document.getElementById('llm-toggle-input')?.addEventListener('change', (e) => {
+      llmEnabled = e.target.checked;
+    });
+  } else if (status === 'unavailable') {
+    area.innerHTML = `
+      <div class="llm-status llm-unavailable">
+        <span class="llm-dot unavailable"></span>
+        <span>Local AI not detected &mdash; using keyword classification</span>
+      </div>
+    `;
+  }
+}
+
+function showLlmProgress(msg) {
+  const area = document.getElementById('llm-status-area');
+  if (!area) return;
+  area.innerHTML = `
+    <div class="llm-status llm-working">
+      <span class="llm-spinner"></span>
+      <span>${msg}</span>
+    </div>
+  `;
 }
 
 function updateStats() {
@@ -33,10 +87,15 @@ function updateStats() {
   if (!data) return;
 
   const indicator = document.getElementById('data-source-indicator');
+  if (!indicator) return;
   const source = getState().dataSource;
-  indicator.innerHTML = `<span class="data-source">${source === 'preloaded' ? '📦 Pre-loaded data' : '📤 Uploaded data'}</span>`;
+  let sourceLabel = '📦 Pre-loaded data';
+  if (source === 'uploaded-llm') sourceLabel = '🤖 Uploaded data (AI-classified)';
+  else if (source === 'uploaded') sourceLabel = '📤 Uploaded data';
+  indicator.innerHTML = `<span class="data-source">${sourceLabel}</span>`;
 
   const cards = document.getElementById('stat-cards');
+  if (!cards) return;
   cards.innerHTML = `
     <div class="card stat-card">
       <div class="stat-value">${data.totalVideos.toLocaleString()}</div>
@@ -78,6 +137,8 @@ function setupUpload() {
   });
 
   function handleFile(file) {
+    const useLlm = llmEnabled && getLlmStatus() === 'available';
+
     progressWrap.classList.add('active');
     progressFill.style.width = '10%';
     progressText.textContent = `Reading ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)...`;
@@ -91,25 +152,57 @@ function setupUpload() {
     };
     reader.onload = () => {
       progressFill.style.width = '50%';
-      progressText.textContent = 'Classifying videos...';
+      progressText.textContent = 'Parsing watch history...';
 
       const worker = new Worker(
         new URL('../parser.worker.js', import.meta.url),
         { type: 'module' }
       );
+
       worker.onmessage = e => {
         if (e.data.type === 'progress') {
           const pct = 50 + Math.round(e.data.pct * 0.45);
           progressFill.style.width = pct + '%';
           progressText.textContent = e.data.msg;
+        } else if (e.data.type === 'done-raw' && useLlm) {
+          // LLM path: got raw videos, run pipeline
+          worker.terminate();
+          progressFill.style.width = '95%';
+          progressText.textContent = `Parsed ${e.data.videos.length.toLocaleString()} videos. Starting AI analysis...`;
+
+          import('../main.js').then(({ setState }) => {
+            runLlmPipeline(
+              e.data.videos,
+              ({ stage, message }) => {
+                showLlmProgress(message);
+                progressText.textContent = message;
+              },
+              setState
+            ).then(success => {
+              if (!success) {
+                // LLM failed, fall back to full worker parse
+                fallbackToKeywordClassification(reader.result, progressWrap, progressFill, progressText);
+              } else {
+                progressFill.style.width = '100%';
+                progressText.textContent = 'AI analysis complete!';
+                updateLlmStatus('available');
+                setTimeout(() => {
+                  progressWrap.classList.remove('active');
+                  progressFill.style.width = '0%';
+                }, 2000);
+              }
+            }).catch(() => {
+              fallbackToKeywordClassification(reader.result, progressWrap, progressFill, progressText);
+            });
+          });
         } else if (e.data.type === 'done') {
+          // Standard keyword classification path
           progressFill.style.width = '100%';
           progressText.textContent = `Done! Parsed ${e.data.result.totalVideos.toLocaleString()} videos.`;
           worker.terminate();
 
-          // Import setState dynamically to avoid circular ref issues
           import('../main.js').then(({ setState }) => {
-            setState({ data: e.data.result, dataSource: 'uploaded' });
+            setState({ data: e.data.result, dataSource: 'uploaded', clusterMeta: null, llmRecommendations: null });
           });
 
           setTimeout(() => {
@@ -122,8 +215,38 @@ function setupUpload() {
           worker.terminate();
         }
       };
-      worker.postMessage({ html: reader.result });
+
+      // Send to worker: parse-only if LLM, full otherwise
+      worker.postMessage({ html: reader.result, mode: useLlm ? 'parse-only' : 'full' });
     };
     reader.readAsText(file);
   }
+}
+
+function fallbackToKeywordClassification(html, progressWrap, progressFill, progressText) {
+  progressText.textContent = 'AI unavailable, using keyword classification...';
+  const worker = new Worker(
+    new URL('../parser.worker.js', import.meta.url),
+    { type: 'module' }
+  );
+  worker.onmessage = e => {
+    if (e.data.type === 'progress') {
+      progressText.textContent = e.data.msg;
+    } else if (e.data.type === 'done') {
+      progressFill.style.width = '100%';
+      progressText.textContent = `Done! Parsed ${e.data.result.totalVideos.toLocaleString()} videos.`;
+      worker.terminate();
+      import('../main.js').then(({ setState }) => {
+        setState({ data: e.data.result, dataSource: 'uploaded', clusterMeta: null, llmRecommendations: null });
+      });
+      setTimeout(() => {
+        progressWrap.classList.remove('active');
+        progressFill.style.width = '0%';
+      }, 2000);
+    } else if (e.data.type === 'error') {
+      progressText.textContent = 'Error: ' + e.data.msg;
+      worker.terminate();
+    }
+  };
+  worker.postMessage({ html, mode: 'full' });
 }

@@ -7,6 +7,16 @@ import {
 
 let activePlatform = 'youtube';
 
+/** Resolve cluster metadata: prefer dynamic LLM meta, fall back to hardcoded */
+function getMeta(id) {
+  return getState().clusterMeta?.[id] || CLUSTER_MAP[id] || { id, label: id, emoji: '', color: '#94a3b8' };
+}
+
+/** Check if we have LLM-generated recommendations */
+function hasLlmRecs() {
+  return !!getState().llmRecommendations;
+}
+
 export function renderRecs(container) {
   container.innerHTML = `
     <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem">
@@ -16,6 +26,7 @@ export function renderRecs(container) {
       </div>
       <button class="btn" id="export-recs-btn">Export as Markdown</button>
     </div>
+    <div id="llm-recs-badge"></div>
     <div class="platform-tabs" id="platform-tabs">
       <button class="platform-tab active" data-platform="youtube">YouTube</button>
       <button class="platform-tab" data-platform="bilibili">Bilibili</button>
@@ -54,6 +65,8 @@ function getActiveClusters() {
 }
 
 function getGapClusters() {
+  // Only show gap clusters for hardcoded recs
+  if (hasLlmRecs()) return [];
   const data = getState().data;
   if (!data?.clusters) return [];
   const active = new Set(getActiveClusters().map(c => c.id));
@@ -64,32 +77,167 @@ function draw() {
   const content = document.getElementById('recs-content');
   const activeClusters = getActiveClusters();
 
-  let html = '';
-
-  if (activePlatform === 'youtube') {
-    html = renderYouTube(activeClusters);
-  } else if (activePlatform === 'bilibili') {
-    html = renderBilibili(activeClusters);
-  } else if (activePlatform === 'reddit') {
-    html = renderReddit(activeClusters);
-  } else if (activePlatform === 'podcasts') {
-    html = renderPodcasts(activeClusters);
+  // Show/hide AI badge
+  const badge = document.getElementById('llm-recs-badge');
+  if (badge) {
+    badge.innerHTML = hasLlmRecs()
+      ? '<span class="ai-generated-badge">AI-generated personalized recommendations</span>'
+      : '';
   }
 
-  // Gap section
-  const gaps = getGapClusters();
-  if (gaps.length > 0) {
-    html += renderGapSection(gaps);
+  let html = '';
+
+  if (hasLlmRecs()) {
+    // Render LLM-generated recommendations
+    html = renderLlmRecs(activeClusters);
+  } else {
+    // Render hardcoded recommendations
+    if (activePlatform === 'youtube') {
+      html = renderYouTube(activeClusters);
+    } else if (activePlatform === 'bilibili') {
+      html = renderBilibili(activeClusters);
+    } else if (activePlatform === 'reddit') {
+      html = renderReddit(activeClusters);
+    } else if (activePlatform === 'podcasts') {
+      html = renderPodcasts(activeClusters);
+    }
+
+    // Gap section
+    const gaps = getGapClusters();
+    if (gaps.length > 0) {
+      html += renderGapSection(gaps);
+    }
   }
 
   content.innerHTML = html;
 }
 
+// ============================================================
+// LLM-generated recommendation rendering
+// ============================================================
+
+function renderLlmRecs(clusters) {
+  const llm = getState().llmRecommendations;
+  if (!llm) return '';
+
+  if (activePlatform === 'youtube') {
+    return clusters.map(c => {
+      const recs = llm.youtube?.[c.id];
+      if (!recs?.length) return '';
+      const meta = getMeta(c.id);
+      return `
+        <div class="rec-cluster-group">
+          <div class="rec-cluster-title">${meta.emoji || ''} ${c.label} <small style="color:var(--text-muted);font-weight:400">(${c.count.toLocaleString()} videos)</small></div>
+          <div class="rec-grid">
+            ${recs.map(r => `
+              <div class="card rec-card">
+                <div class="rec-name">${esc(r.topic || r.name || '')}</div>
+                <div class="rec-tagline">${esc(r.channels || r.tagline || '')}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  if (activePlatform === 'bilibili') {
+    return clusters.map(c => {
+      const recs = llm.bilibili?.[c.id];
+      if (!recs) return '';
+      const meta = getMeta(c.id);
+      const crossovers = recs.crossover || [];
+      const natives = recs.native || [];
+      if (!crossovers.length && !natives.length) return '';
+      return `
+        <div class="rec-cluster-group">
+          <div class="rec-cluster-title">${meta.emoji || ''} ${c.label}</div>
+          <div class="rec-grid">
+            ${crossovers.map(r => `
+              <div class="card rec-card">
+                <span class="crossover-badge">Crossover</span>
+                <div class="rec-name">${esc(r.name)}</div>
+                <div class="rec-tagline">${esc(r.tagline)}</div>
+                ${r.search ? `<div class="rec-meta">Search: ${esc(r.search)}</div>` : ''}
+              </div>
+            `).join('')}
+            ${natives.map(r => `
+              <div class="card rec-card">
+                <div class="rec-name">${esc(r.name)}</div>
+                <div class="rec-tagline">${esc(r.tagline)}</div>
+                ${r.search ? `<div class="rec-meta">Search: ${esc(r.search)}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  if (activePlatform === 'reddit') {
+    return clusters.map(c => {
+      const recs = llm.reddit?.[c.id];
+      if (!recs?.length) return '';
+      const meta = getMeta(c.id);
+      return `
+        <div class="rec-cluster-group">
+          <div class="rec-cluster-title">${meta.emoji || ''} ${c.label}</div>
+          <div class="rec-grid">
+            ${recs.map(r => `
+              <div class="card rec-card">
+                <div class="rec-name">${esc(r.sub)}</div>
+                <div class="rec-tagline">${esc(r.tagline)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  if (activePlatform === 'podcasts') {
+    return clusters.map(c => {
+      const en = llm.podcasts_en?.[c.id] || [];
+      const zh = llm.podcasts_zh?.[c.id] || [];
+      if (!en.length && !zh.length) return '';
+      const meta = getMeta(c.id);
+      return `
+        <div class="rec-cluster-group">
+          <div class="rec-cluster-title">${meta.emoji || ''} ${c.label}</div>
+          <div class="rec-grid">
+            ${en.map(r => `
+              <div class="card rec-card">
+                <div class="rec-name">${esc(r.name)}</div>
+                <div class="rec-meta">${esc(r.host)}</div>
+                <div class="rec-tagline">${esc(r.tagline)}</div>
+              </div>
+            `).join('')}
+            ${zh.map(r => `
+              <div class="card rec-card">
+                <span class="crossover-badge" style="background:rgba(236,72,153,0.15);color:#ec4899">\u4E2D\u6587</span>
+                <div class="rec-name">${esc(r.name)}</div>
+                <div class="rec-meta">${esc(r.host)}</div>
+                <div class="rec-tagline">${esc(r.tagline)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  return '';
+}
+
+// ============================================================
+// Hardcoded recommendation rendering (unchanged)
+// ============================================================
+
 function renderYouTube(clusters) {
   return clusters.map(c => {
     const recs = YOUTUBE_RECS[c.id];
     if (!recs?.length) return '';
-    const meta = CLUSTER_MAP[c.id] || {};
+    const meta = getMeta(c.id);
     return `
       <div class="rec-cluster-group">
         <div class="rec-cluster-title">${meta.emoji || ''} ${c.label} <small style="color:var(--text-muted);font-weight:400">(${c.count.toLocaleString()} videos)</small></div>
@@ -110,7 +258,7 @@ function renderBilibili(clusters) {
   return clusters.map(c => {
     const recs = BILIBILI_RECS[c.id];
     if (!recs) return '';
-    const meta = CLUSTER_MAP[c.id] || {};
+    const meta = getMeta(c.id);
     const crossovers = recs.crossover || [];
     const natives = recs.native || [];
     const hints = recs.searchHints || [];
@@ -151,7 +299,7 @@ function renderReddit(clusters) {
   return clusters.map(c => {
     const recs = REDDIT_RECS[c.id];
     if (!recs?.length) return '';
-    const meta = CLUSTER_MAP[c.id] || {};
+    const meta = getMeta(c.id);
     return `
       <div class="rec-cluster-group">
         <div class="rec-cluster-title">${meta.emoji || ''} ${c.label}</div>
@@ -173,7 +321,7 @@ function renderPodcasts(clusters) {
     const en = PODCAST_EN_RECS[c.id] || [];
     const zh = PODCAST_ZH_RECS[c.id] || [];
     if (!en.length && !zh.length) return '';
-    const meta = CLUSTER_MAP[c.id] || {};
+    const meta = getMeta(c.id);
     return `
       <div class="rec-cluster-group">
         <div class="rec-cluster-title">${meta.emoji || ''} ${c.label}</div>
@@ -209,7 +357,7 @@ function renderGapSection(gapIds) {
 
   const recsSource = platforms[activePlatform];
   const cards = gapIds.map(id => {
-    const meta = CLUSTER_MAP[id] || {};
+    const meta = getMeta(id);
     const recs = recsSource[id];
     if (!recs) return '';
     let items = '';
@@ -258,49 +406,80 @@ function exportMarkdown() {
   md += `Total videos: ${data.totalVideos.toLocaleString()}\n`;
   md += `Date range: ${data.dateRange.earliest} to ${data.dateRange.latest}\n\n`;
 
-  // YouTube
-  md += `## YouTube Channels\n\n`;
-  activeClusters.forEach(c => {
-    const recs = YOUTUBE_RECS[c.id];
-    if (!recs?.length) return;
-    md += `### ${c.label}\n`;
-    recs.forEach(r => { md += `- **${r.topic}**: ${r.channels}\n`; });
-    md += '\n';
-  });
+  if (hasLlmRecs()) {
+    md += `> AI-generated personalized recommendations\n\n`;
+    const llm = getState().llmRecommendations;
 
-  // Bilibili
-  md += `## Bilibili UP\u4E3B\n\n`;
-  activeClusters.forEach(c => {
-    const recs = BILIBILI_RECS[c.id];
-    if (!recs) return;
-    md += `### ${c.label}\n`;
-    [...(recs.crossover || []), ...(recs.native || [])].forEach(r => {
-      md += `- **${r.name}**: ${r.tagline} (search: ${r.search})\n`;
+    md += `## YouTube Channels\n\n`;
+    activeClusters.forEach(c => {
+      const recs = llm.youtube?.[c.id];
+      if (!recs?.length) return;
+      md += `### ${c.label}\n`;
+      recs.forEach(r => { md += `- **${r.topic || r.name || ''}**: ${r.channels || r.tagline || ''}\n`; });
+      md += '\n';
     });
-    md += '\n';
-  });
 
-  // Reddit
-  md += `## Reddit Subreddits\n\n`;
-  activeClusters.forEach(c => {
-    const recs = REDDIT_RECS[c.id];
-    if (!recs?.length) return;
-    md += `### ${c.label}\n`;
-    recs.forEach(r => { md += `- **${r.sub}**: ${r.tagline}\n`; });
-    md += '\n';
-  });
+    md += `## Reddit Subreddits\n\n`;
+    activeClusters.forEach(c => {
+      const recs = llm.reddit?.[c.id];
+      if (!recs?.length) return;
+      md += `### ${c.label}\n`;
+      recs.forEach(r => { md += `- **${r.sub}**: ${r.tagline}\n`; });
+      md += '\n';
+    });
 
-  // Podcasts
-  md += `## Podcasts\n\n`;
-  activeClusters.forEach(c => {
-    const en = PODCAST_EN_RECS[c.id] || [];
-    const zh = PODCAST_ZH_RECS[c.id] || [];
-    if (!en.length && !zh.length) return;
-    md += `### ${c.label}\n`;
-    en.forEach(r => { md += `- **${r.name}** (${r.host}): ${r.tagline}\n`; });
-    zh.forEach(r => { md += `- **${r.name}** (${r.host}): ${r.tagline}\n`; });
-    md += '\n';
-  });
+    md += `## Podcasts\n\n`;
+    activeClusters.forEach(c => {
+      const en = llm.podcasts_en?.[c.id] || [];
+      const zh = llm.podcasts_zh?.[c.id] || [];
+      if (!en.length && !zh.length) return;
+      md += `### ${c.label}\n`;
+      en.forEach(r => { md += `- **${r.name}** (${r.host}): ${r.tagline}\n`; });
+      zh.forEach(r => { md += `- **${r.name}** (${r.host}): ${r.tagline}\n`; });
+      md += '\n';
+    });
+  } else {
+    // Hardcoded export
+    md += `## YouTube Channels\n\n`;
+    activeClusters.forEach(c => {
+      const recs = YOUTUBE_RECS[c.id];
+      if (!recs?.length) return;
+      md += `### ${c.label}\n`;
+      recs.forEach(r => { md += `- **${r.topic}**: ${r.channels}\n`; });
+      md += '\n';
+    });
+
+    md += `## Bilibili UP\u4E3B\n\n`;
+    activeClusters.forEach(c => {
+      const recs = BILIBILI_RECS[c.id];
+      if (!recs) return;
+      md += `### ${c.label}\n`;
+      [...(recs.crossover || []), ...(recs.native || [])].forEach(r => {
+        md += `- **${r.name}**: ${r.tagline} (search: ${r.search})\n`;
+      });
+      md += '\n';
+    });
+
+    md += `## Reddit Subreddits\n\n`;
+    activeClusters.forEach(c => {
+      const recs = REDDIT_RECS[c.id];
+      if (!recs?.length) return;
+      md += `### ${c.label}\n`;
+      recs.forEach(r => { md += `- **${r.sub}**: ${r.tagline}\n`; });
+      md += '\n';
+    });
+
+    md += `## Podcasts\n\n`;
+    activeClusters.forEach(c => {
+      const en = PODCAST_EN_RECS[c.id] || [];
+      const zh = PODCAST_ZH_RECS[c.id] || [];
+      if (!en.length && !zh.length) return;
+      md += `### ${c.label}\n`;
+      en.forEach(r => { md += `- **${r.name}** (${r.host}): ${r.tagline}\n`; });
+      zh.forEach(r => { md += `- **${r.name}** (${r.host}): ${r.tagline}\n`; });
+      md += '\n';
+    });
+  }
 
   const blob = new Blob([md], { type: 'text/markdown' });
   const url = URL.createObjectURL(blob);
@@ -312,6 +491,7 @@ function exportMarkdown() {
 }
 
 function esc(s) {
+  if (!s) return '';
   const div = document.createElement('div');
   div.textContent = s;
   return div.innerHTML;

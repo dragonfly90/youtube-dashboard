@@ -522,6 +522,113 @@ tr:hover td { background: var(--accent-glow); }
 }
 
 /* ============================================================
+   LLM Status & Toggle
+   ============================================================ */
+.llm-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  padding: 0.6rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.llm-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.llm-dot.available { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.llm-dot.unavailable { background: var(--text-muted); }
+
+.llm-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: llm-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes llm-spin {
+  to { transform: rotate(360deg); }
+}
+
+.llm-working {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+/* Toggle switch */
+.llm-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  margin-left: auto;
+  font-size: 0.8rem;
+  user-select: none;
+}
+.llm-toggle input { display: none; }
+.llm-toggle-slider {
+  width: 32px;
+  height: 18px;
+  background: var(--border);
+  border-radius: 9px;
+  position: relative;
+  transition: background var(--transition);
+  flex-shrink: 0;
+}
+.llm-toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform var(--transition), background var(--transition);
+}
+.llm-toggle input:checked + .llm-toggle-slider {
+  background: var(--accent);
+}
+.llm-toggle input:checked + .llm-toggle-slider::after {
+  transform: translateX(14px);
+  background: #fff;
+}
+.llm-toggle-label {
+  color: var(--text-muted);
+}
+
+/* AI-generated badge */
+.ai-generated-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.15));
+  color: var(--accent);
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  margin-bottom: 1rem;
+}
+.ai-generated-badge::before {
+  content: '\u{1F916}';
+  font-size: 0.85rem;
+}
+
+/* ============================================================
    Mobile
    ============================================================ */
 @media (max-width: 768px) {
