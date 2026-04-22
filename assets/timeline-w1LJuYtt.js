@@ -1,4 +1,4 @@
-import{o as l,e as d,b as m}from"./index-BdwZ79a6.js";function h(a){a.innerHTML=`
+import{o as l,b as d,e as m}from"./index-Df6xpGmw.js";function h(a){a.innerHTML=`
     <div class="section-header">
       <h2>Timeline</h2>
       <p>Monthly watch volume over time</p>
@@ -7,7 +7,7 @@ import{o as l,e as d,b as m}from"./index-BdwZ79a6.js";function h(a){a.innerHTML=
       <canvas id="timeline-chart"></canvas>
     </div>
     <div id="yearly-summary" style="margin-top:1rem"></div>
-  `,i(),l(i)}function i(){const a=m().data;if(!a?.monthly)return;const s=document.getElementById("timeline-chart"),c=a.monthly.map(t=>t.month),o=a.monthly.map(t=>t.count);d(s,c,o,{color:"#6366f1",label:"Videos watched"});const n={};a.monthly.forEach(t=>{const e=t.month.slice(0,4);n[e]=(n[e]||0)+t.count});const r=document.getElementById("yearly-summary");r.innerHTML=`
+  `,i(),l(i)}function i(){const a=d().data;if(!a?.monthly)return;const s=document.getElementById("timeline-chart"),c=a.monthly.map(t=>t.month),o=a.monthly.map(t=>t.count);m(s,c,o,{color:"#6366f1",label:"Videos watched"});const n={};a.monthly.forEach(t=>{const e=t.month.slice(0,4);n[e]=(n[e]||0)+t.count});const r=document.getElementById("yearly-summary");r.innerHTML=`
     <div class="card-grid">
       ${Object.entries(n).map(([t,e])=>`
         <div class="card stat-card">

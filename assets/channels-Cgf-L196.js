@@ -1,4 +1,4 @@
-import{o as h,s as m,b as o}from"./index-BdwZ79a6.js";import{C as b,a as f}from"./classifier-tAIPdZbh.js";let i="count",d=-1;function p(t){return o().clusterMeta?.[t]||b[t]||{id:t,label:t,emoji:"",color:"#94a3b8"}}function v(){const t=o().clusterMeta;return t?Object.values(t).filter(e=>e.id!=="other"):f}function M(t){t.innerHTML=`
+import{o as h,s as m,b as o}from"./index-Df6xpGmw.js";import{a as b,C as f}from"./classifier-tAIPdZbh.js";let i="count",d=-1;function p(t){return o().clusterMeta?.[t]||f[t]||{id:t,label:t,emoji:"",color:"#94a3b8"}}function v(){const t=o().clusterMeta;return t?Object.values(t).filter(e=>e.id!=="other"):b}function M(t){t.innerHTML=`
     <div class="section-header">
       <h2>Top Channels</h2>
       <p>Most-watched channels, filterable by cluster</p>

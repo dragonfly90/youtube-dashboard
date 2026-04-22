@@ -1,4 +1,4 @@
-import{o as h,i as f,b as g}from"./index-BdwZ79a6.js";import{C as $}from"./classifier-tAIPdZbh.js";function c(n){return g().clusterMeta?.[n]||$[n]||{id:n,label:n,emoji:"",color:"#94a3b8"}}function L(n){n.innerHTML=`
+import{o as h,b as g,i as f}from"./index-Df6xpGmw.js";import{C as $}from"./classifier-tAIPdZbh.js";function c(n){return g().clusterMeta?.[n]||$[n]||{id:n,label:n,emoji:"",color:"#94a3b8"}}function L(n){n.innerHTML=`
     <div class="section-header">
       <h2>Trends</h2>
       <p>Rising and fading interests based on last 90 days vs. all-time share</p>
