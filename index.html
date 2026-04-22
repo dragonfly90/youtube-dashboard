@@ -8,7 +8,9 @@
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
-  <nav id="main-nav">
+  <div id="auth-screen" class="auth-screen"></div>
+
+  <nav id="main-nav" style="display:none">
     <div class="nav-brand">
       <span class="brand-icon">📊</span>
       <span class="brand-text">YouTube Interests</span>
@@ -22,13 +24,17 @@
       <li><a href="#trends" class="nav-link" data-section="trends">Trends</a></li>
       <li><a href="#recs" class="nav-link" data-section="recs">Recommendations</a></li>
     </ul>
+    <div id="user-menu" class="user-menu">
+      <span id="user-email" class="user-email"></span>
+      <button id="logout-btn" class="btn btn-sm">Logout</button>
+    </div>
     <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
       <span class="theme-icon-dark">&#9790;</span>
       <span class="theme-icon-light">&#9728;</span>
     </button>
   </nav>
 
-  <main id="app">
+  <main id="app" style="display:none">
     <section id="section-overview" class="section active"></section>
     <section id="section-timeline" class="section"></section>
     <section id="section-clusters" class="section"></section>

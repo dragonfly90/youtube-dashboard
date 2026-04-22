@@ -2,6 +2,8 @@ import './style.css';
 import preloadedData from './data/preloaded.json';
 import { refreshChartTheme } from './utils/charts.js';
 import { checkOllamaAvailable } from './llm.js';
+import { initAuth, signOut, onAuthChange, getCurrentUser } from './auth.js';
+import { initFirestore, loadUserData, saveUserData, cancelPendingSave } from './firestore.js';
 
 // ============================================================
 // State management
@@ -21,6 +23,8 @@ const sectionListeners = new Map(); // section -> [fn, ...]
 
 export function getState() { return state; }
 
+const PERSIST_KEYS = ['data', 'dataSource', 'clusterMeta', 'llmRecommendations'];
+
 export function setState(patch) {
   const dataChanged = 'data' in patch && patch.data !== state.data;
   Object.assign(state, patch);
@@ -37,6 +41,19 @@ export function setState(patch) {
     // Notify section listeners (for activeCluster changes, etc.)
     for (const [, fns] of sectionListeners) {
       fns.forEach(fn => fn(state));
+    }
+  }
+
+  // Persist to Firestore if any persistable key changed
+  if (PERSIST_KEYS.some(k => k in patch)) {
+    const user = getCurrentUser();
+    if (user) {
+      saveUserData(user.uid, {
+        data: state.data,
+        dataSource: state.dataSource,
+        clusterMeta: state.clusterMeta,
+        llmRecommendations: state.llmRecommendations,
+      });
     }
   }
 }
@@ -146,7 +163,67 @@ themeToggle.addEventListener('click', () => {
 });
 
 // ============================================================
-// Init
+// Auth-gated init
 // ============================================================
-handleHash();
-checkOllamaAvailable(); // fire-and-forget; overview.js observes status
+document.getElementById('logout-btn').addEventListener('click', () => {
+  signOut();
+});
+
+// Listen for auth state changes after initial load (e.g. login from auth screen)
+onAuthChange(async (user) => {
+  if (user) {
+    document.getElementById('main-nav').style.display = 'flex';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('user-email').textContent = user.email;
+
+    // Load persisted data for this user
+    const saved = await loadUserData(user.uid);
+    if (saved && saved.data) {
+      // Apply directly to avoid save-back loop
+      Object.assign(state, saved);
+      // Clear rendered sections for full re-render
+      sectionListeners.clear();
+      sectionRendered.clear();
+      sectionNames.forEach(s => {
+        document.getElementById(`section-${s}`).innerHTML = '';
+      });
+    }
+
+    handleHash();
+    checkOllamaAvailable();
+  } else {
+    // Sign-out: cancel pending saves and reset to preloaded
+    cancelPendingSave();
+    Object.assign(state, {
+      data: preloadedData,
+      dataSource: 'preloaded',
+      clusterMeta: null,
+      llmRecommendations: null,
+      activeCluster: null,
+    });
+    sectionListeners.clear();
+    sectionRendered.clear();
+    sectionNames.forEach(s => {
+      document.getElementById(`section-${s}`).innerHTML = '';
+    });
+  }
+});
+
+(async () => {
+  const user = await initAuth();
+  initFirestore();
+  if (user) {
+    const saved = await loadUserData(user.uid);
+    if (saved && saved.data) {
+      Object.assign(state, saved);
+      sectionListeners.clear();
+      sectionRendered.clear();
+      sectionNames.forEach(s => {
+        document.getElementById(`section-${s}`).innerHTML = '';
+      });
+    }
+    handleHash();
+    checkOllamaAvailable();
+  }
+})();
