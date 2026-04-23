@@ -1,9 +1,11 @@
 /**
- * Ollama LLM integration — health check, cluster discovery (Phase 1),
- * and recommendation generation (Phase 3).
+ * LLM integration — Ollama (local) with Google AI Studio (Gemini) cloud fallback.
  *
- * Uses POST /api/ollama/api/generate (proxied by Vite to localhost:11434).
- * All calls use stream: false and low temperature for deterministic JSON output.
+ * Fallback chain: Ollama (local) → Google AI Studio (cloud) → keyword classification
+ *
+ * Ollama uses POST /api/ollama/api/generate (proxied by Vite to localhost:11434).
+ * Gemini uses POST https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent
+ * All calls use low temperature for deterministic JSON output.
  */
 
 const OLLAMA_BASE = '/api/ollama';
@@ -22,10 +24,14 @@ const COLOR_PALETTE = [
 // Health check
 // ============================================================
 
-let _llmStatus = 'checking'; // 'checking' | 'available' | 'unavailable'
+let _llmStatus = 'checking'; // 'checking' | 'available' | 'cloud' | 'unavailable'
 let _statusListeners = [];
+let _geminiApiKey = null;
 
 export function getLlmStatus() { return _llmStatus; }
+
+export function setGeminiApiKey(key) { _geminiApiKey = key || null; }
+export function getGeminiApiKey() { return _geminiApiKey; }
 
 export function onLlmStatusChange(fn) {
   _statusListeners.push(fn);
@@ -37,8 +43,9 @@ function setLlmStatus(s) {
   _statusListeners.forEach(fn => fn(s));
 }
 
-export async function checkOllamaAvailable() {
+export async function checkLlmAvailable() {
   setLlmStatus('checking');
+  // Try Ollama first
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 3000);
@@ -47,19 +54,53 @@ export async function checkOllamaAvailable() {
     if (res.ok) {
       const data = await res.json();
       const hasModel = data.models?.some(m => m.name === MODEL || m.name.startsWith('gemma4'));
-      setLlmStatus(hasModel ? 'available' : 'unavailable');
-    } else {
-      setLlmStatus('unavailable');
+      if (hasModel) {
+        setLlmStatus('available');
+        return _llmStatus;
+      }
     }
-  } catch {
-    setLlmStatus('unavailable');
+  } catch { /* Ollama not reachable */ }
+
+  // Fallback: check for Gemini API key
+  const key = _geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY;
+  if (key) {
+    _geminiApiKey = key;
+    setLlmStatus('cloud');
+    return _llmStatus;
   }
+
+  setLlmStatus('unavailable');
   return _llmStatus;
 }
 
 // ============================================================
-// LLM call helper
+// LLM call helpers
 // ============================================================
+
+async function geminiGenerate(prompt) {
+  if (!_geminiApiKey) throw new Error('No Gemini API key configured');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent?key=${_geminiApiKey}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.3 },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => '');
+    throw new Error(`Gemini API returned ${res.status}: ${err}`);
+  }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+async function llmGenerate(prompt) {
+  if (_llmStatus === 'available') return ollamaGenerate(prompt);
+  if (_llmStatus === 'cloud') return geminiGenerate(prompt);
+  throw new Error('No LLM backend available');
+}
 
 async function ollamaGenerate(prompt) {
   const ctrl = new AbortController();
@@ -135,7 +176,7 @@ Important:
 - Channel names are powerful classifiers — include notable channel names in keywords
 - Return ONLY the JSON array, nothing else`;
 
-  const raw = await ollamaGenerate(prompt);
+  const raw = await llmGenerate(prompt);
   let clusters = parseJsonResponse(raw);
 
   // Validate and fix
@@ -203,7 +244,7 @@ Important:
 - Keep descriptions concise (under 80 chars)
 - Return ONLY the JSON object, nothing else`;
 
-  const raw = await ollamaGenerate(prompt);
+  const raw = await llmGenerate(prompt);
   const recs = parseJsonResponse(raw);
 
   if (!recs || typeof recs !== 'object') throw new Error('Phase 3: expected object');

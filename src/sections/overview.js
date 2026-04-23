@@ -1,5 +1,7 @@
 import { getState, onStateChange } from '../main.js';
-import { getLlmStatus, onLlmStatusChange } from '../llm.js';
+import { getLlmStatus, onLlmStatusChange, setGeminiApiKey, checkLlmAvailable } from '../llm.js';
+import { saveGeminiApiKey } from '../firestore.js';
+import { getCurrentUser } from '../auth.js';
 import { runLlmPipeline } from '../llm-pipeline.js';
 
 let llmEnabled = true; // user toggle, default on
@@ -43,14 +45,29 @@ function updateLlmStatus(status) {
     area.innerHTML = `
       <div class="llm-status llm-checking">
         <span class="llm-spinner"></span>
-        <span>Checking for local AI (Ollama)...</span>
+        <span>Checking for AI availability...</span>
       </div>
     `;
   } else if (status === 'available') {
     area.innerHTML = `
       <div class="llm-status llm-available">
         <span class="llm-dot available"></span>
-        <span>Local AI available (Gemma 4)</span>
+        <span>Local AI available (Gemma 4 via Ollama)</span>
+        <label class="llm-toggle">
+          <input type="checkbox" id="llm-toggle-input" ${llmEnabled ? 'checked' : ''} />
+          <span class="llm-toggle-slider"></span>
+          <span class="llm-toggle-label">Use AI-powered classification</span>
+        </label>
+      </div>
+    `;
+    document.getElementById('llm-toggle-input')?.addEventListener('change', (e) => {
+      llmEnabled = e.target.checked;
+    });
+  } else if (status === 'cloud') {
+    area.innerHTML = `
+      <div class="llm-status llm-available">
+        <span class="llm-dot available"></span>
+        <span>Cloud AI available (Gemma via Google AI Studio)</span>
         <label class="llm-toggle">
           <input type="checkbox" id="llm-toggle-input" ${llmEnabled ? 'checked' : ''} />
           <span class="llm-toggle-slider"></span>
@@ -65,9 +82,23 @@ function updateLlmStatus(status) {
     area.innerHTML = `
       <div class="llm-status llm-unavailable">
         <span class="llm-dot unavailable"></span>
-        <span>Local AI not detected &mdash; using keyword classification</span>
+        <span>No AI detected &mdash; using keyword classification</span>
+        <div class="gemini-key-input">
+          <input type="password" id="gemini-key-field" placeholder="Enter Google AI Studio API key" />
+          <button class="btn btn-primary btn-sm" id="gemini-key-save">Save</button>
+        </div>
+        <small class="gemini-key-hint">Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></small>
       </div>
     `;
+    document.getElementById('gemini-key-save')?.addEventListener('click', async () => {
+      const input = document.getElementById('gemini-key-field');
+      const key = input?.value.trim();
+      if (!key) return;
+      setGeminiApiKey(key);
+      const user = getCurrentUser();
+      if (user) await saveGeminiApiKey(user.uid, key);
+      await checkLlmAvailable();
+    });
   }
 }
 
@@ -137,7 +168,8 @@ function setupUpload() {
   });
 
   function handleFile(file) {
-    const useLlm = llmEnabled && getLlmStatus() === 'available';
+    const status = getLlmStatus();
+    const useLlm = llmEnabled && (status === 'available' || status === 'cloud');
 
     progressWrap.classList.add('active');
     progressFill.style.width = '10%';

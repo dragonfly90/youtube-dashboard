@@ -9,7 +9,7 @@ export function initFirestore() {
     console.warn('Firestore: Firebase app not available');
     return;
   }
-  db = getFirestore(app);
+  db = getFirestore(app, 'youtubewatchhistory');
 }
 
 /**
@@ -68,4 +68,27 @@ export function saveUserData(uid, fields) {
 export function cancelPendingSave() {
   clearTimeout(saveTimer);
   saveTimer = null;
+}
+
+// ── Gemini API key persistence ──────────────────────────────
+
+export async function loadGeminiApiKey(uid) {
+  if (!db) return null;
+  try {
+    const snap = await getDoc(doc(db, 'users', uid, 'settings', 'current'));
+    return snap.exists() ? (snap.data().geminiApiKey ?? null) : null;
+  } catch (err) {
+    console.error('Firestore: failed to load Gemini API key', err);
+    return null;
+  }
+}
+
+export async function saveGeminiApiKey(uid, key) {
+  if (!db) return;
+  try {
+    await setDoc(doc(db, 'users', uid, 'settings', 'current'), { geminiApiKey: key }, { merge: true });
+    console.log('Firestore: saved Gemini API key');
+  } catch (err) {
+    console.error('Firestore: failed to save Gemini API key', err);
+  }
 }

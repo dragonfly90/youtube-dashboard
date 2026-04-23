@@ -607,6 +607,34 @@ tr:hover td { background: var(--accent-glow); }
   color: var(--text-muted);
 }
 
+.gemini-key-input {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+.gemini-key-input input {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+.gemini-key-input input::placeholder { color: var(--text-muted); }
+.btn-sm {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+}
+.gemini-key-hint {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.gemini-key-hint a { color: var(--accent); }
+
 /* AI-generated badge */
 .ai-generated-badge {
   display: inline-flex;

@@ -1,9 +1,9 @@
 import './style.css';
 import preloadedData from './data/preloaded.json';
 import { refreshChartTheme } from './utils/charts.js';
-import { checkOllamaAvailable } from './llm.js';
+import { checkLlmAvailable, setGeminiApiKey } from './llm.js';
 import { initAuth, signOut, onAuthChange, getCurrentUser } from './auth.js';
-import { initFirestore, loadUserData, saveUserData, cancelPendingSave } from './firestore.js';
+import { initFirestore, loadUserData, saveUserData, cancelPendingSave, loadGeminiApiKey } from './firestore.js';
 
 // ============================================================
 // State management
@@ -190,8 +190,12 @@ onAuthChange(async (user) => {
       });
     }
 
+    // Load Gemini API key from Firestore before checking LLM availability
+    const geminiKey = await loadGeminiApiKey(user.uid);
+    if (geminiKey) setGeminiApiKey(geminiKey);
+
     handleHash();
-    checkOllamaAvailable();
+    checkLlmAvailable();
   } else {
     // Sign-out: cancel pending saves and reset to preloaded
     cancelPendingSave();
@@ -223,7 +227,11 @@ onAuthChange(async (user) => {
         document.getElementById(`section-${s}`).innerHTML = '';
       });
     }
+    // Load Gemini API key from Firestore before checking LLM availability
+    const geminiKey = await loadGeminiApiKey(user.uid);
+    if (geminiKey) setGeminiApiKey(geminiKey);
+
     handleHash();
-    checkOllamaAvailable();
+    checkLlmAvailable();
   }
 })();
