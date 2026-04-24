@@ -1,4 +1,4 @@
-import{o as g,b as r,f as C,h as y,s as c}from"./index-Df6xpGmw.js";import{C as b}from"./classifier-tAIPdZbh.js";function l(e){return r().clusterMeta?.[e]||b[e]||{id:e,label:e,emoji:"",color:"#94a3b8"}}function M(e){e.innerHTML=`
+import{o as g,b as r,j as C,k as y,l as c}from"./index-B5T2II_u.js";import{C as b}from"./classifier-tAIPdZbh.js";function l(e){return r().clusterMeta?.[e]||b[e]||{id:e,label:e,emoji:"",color:"#94a3b8"}}function M(e){e.innerHTML=`
     <div class="section-header">
       <h2>Interest Clusters</h2>
       <p>How your watch history breaks down by topic. Click a cluster to filter.</p>

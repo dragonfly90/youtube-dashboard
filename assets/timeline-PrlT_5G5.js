@@ -1,4 +1,4 @@
-import{o as l,b as d,e as m}from"./index-Df6xpGmw.js";function h(a){a.innerHTML=`
+import{o as l,b as d,i as m}from"./index-B5T2II_u.js";function h(a){a.innerHTML=`
     <div class="section-header">
       <h2>Timeline</h2>
       <p>Monthly watch volume over time</p>
