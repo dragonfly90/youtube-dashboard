@@ -7,6 +7,25 @@ import {
 
 let activePlatform = 'youtube';
 
+/* ---- URL helpers (deterministic, no LLM-generated URLs) ---- */
+function youtubeSearchUrl(query) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+}
+function bilibiliSearchUrl(query) {
+  return `https://search.bilibili.com/all?keyword=${encodeURIComponent(query)}`;
+}
+function redditUrl(sub) {
+  // sub may be "r/Foo" or just "Foo"
+  const clean = sub.replace(/^r\//, '');
+  return `https://www.reddit.com/r/${encodeURIComponent(clean)}`;
+}
+function podcastSearchUrl(name) {
+  return `https://podcasts.apple.com/search?term=${encodeURIComponent(name)}`;
+}
+function linkWrap(url, text) {
+  return `<a href="${url}" target="_blank" rel="noopener">${text}</a>`;
+}
+
 /** Resolve cluster metadata: prefer dynamic LLM meta, fall back to hardcoded */
 function getMeta(id) {
   return getState().clusterMeta?.[id] || CLUSTER_MAP[id] || { id, label: id, emoji: '', color: '#94a3b8' };
@@ -129,12 +148,15 @@ function renderLlmRecs(clusters) {
         <div class="rec-cluster-group">
           <div class="rec-cluster-title">${meta.emoji || ''} ${c.label} <small style="color:var(--text-muted);font-weight:400">(${c.count.toLocaleString()} videos)</small></div>
           <div class="rec-grid">
-            ${recs.map(r => `
+            ${recs.map(r => {
+              const name = r.topic || r.name || '';
+              const query = r.topic || r.channels || name;
+              return `
               <div class="card rec-card">
-                <div class="rec-name">${esc(r.topic || r.name || '')}</div>
+                <div class="rec-name">${linkWrap(youtubeSearchUrl(query), esc(name))}</div>
                 <div class="rec-tagline">${esc(r.channels || r.tagline || '')}</div>
               </div>
-            `).join('')}
+            `;}).join('')}
           </div>
         </div>
       `;
@@ -156,14 +178,14 @@ function renderLlmRecs(clusters) {
             ${crossovers.map(r => `
               <div class="card rec-card">
                 <span class="crossover-badge">Crossover</span>
-                <div class="rec-name">${esc(r.name)}</div>
+                <div class="rec-name">${linkWrap(bilibiliSearchUrl(r.search || r.name), esc(r.name))}</div>
                 <div class="rec-tagline">${esc(r.tagline)}</div>
                 ${r.search ? `<div class="rec-meta">Search: ${esc(r.search)}</div>` : ''}
               </div>
             `).join('')}
             ${natives.map(r => `
               <div class="card rec-card">
-                <div class="rec-name">${esc(r.name)}</div>
+                <div class="rec-name">${linkWrap(bilibiliSearchUrl(r.search || r.name), esc(r.name))}</div>
                 <div class="rec-tagline">${esc(r.tagline)}</div>
                 ${r.search ? `<div class="rec-meta">Search: ${esc(r.search)}</div>` : ''}
               </div>
@@ -185,7 +207,7 @@ function renderLlmRecs(clusters) {
           <div class="rec-grid">
             ${recs.map(r => `
               <div class="card rec-card">
-                <div class="rec-name">${esc(r.sub)}</div>
+                <div class="rec-name">${linkWrap(redditUrl(r.sub), esc(r.sub))}</div>
                 <div class="rec-tagline">${esc(r.tagline)}</div>
               </div>
             `).join('')}
@@ -207,7 +229,7 @@ function renderLlmRecs(clusters) {
           <div class="rec-grid">
             ${en.map(r => `
               <div class="card rec-card">
-                <div class="rec-name">${esc(r.name)}</div>
+                <div class="rec-name">${linkWrap(podcastSearchUrl(r.name), esc(r.name))}</div>
                 <div class="rec-meta">${esc(r.host)}</div>
                 <div class="rec-tagline">${esc(r.tagline)}</div>
               </div>
@@ -215,7 +237,7 @@ function renderLlmRecs(clusters) {
             ${zh.map(r => `
               <div class="card rec-card">
                 <span class="crossover-badge" style="background:rgba(236,72,153,0.15);color:#ec4899">\u4E2D\u6587</span>
-                <div class="rec-name">${esc(r.name)}</div>
+                <div class="rec-name">${linkWrap(podcastSearchUrl(r.name), esc(r.name))}</div>
                 <div class="rec-meta">${esc(r.host)}</div>
                 <div class="rec-tagline">${esc(r.tagline)}</div>
               </div>
@@ -244,7 +266,7 @@ function renderYouTube(clusters) {
         <div class="rec-grid">
           ${recs.map(r => `
             <div class="card rec-card">
-              <div class="rec-name">${esc(r.topic)}</div>
+              <div class="rec-name">${linkWrap(youtubeSearchUrl(r.topic), esc(r.topic))}</div>
               <div class="rec-tagline">${esc(r.channels)}</div>
             </div>
           `).join('')}
@@ -272,14 +294,14 @@ function renderBilibili(clusters) {
           ${crossovers.map(r => `
             <div class="card rec-card">
               <span class="crossover-badge">Crossover</span>
-              <div class="rec-name">${esc(r.name)}</div>
+              <div class="rec-name">${linkWrap(bilibiliSearchUrl(r.search || r.name), esc(r.name))}</div>
               <div class="rec-tagline">${esc(r.tagline)}</div>
               <div class="rec-meta">Search: ${esc(r.search)}</div>
             </div>
           `).join('')}
           ${natives.map(r => `
             <div class="card rec-card">
-              <div class="rec-name">${esc(r.name)}</div>
+              <div class="rec-name">${linkWrap(bilibiliSearchUrl(r.search || r.name), esc(r.name))}</div>
               <div class="rec-tagline">${esc(r.tagline)}</div>
               <div class="rec-meta">Search: ${esc(r.search)}</div>
             </div>
@@ -306,7 +328,7 @@ function renderReddit(clusters) {
         <div class="rec-grid">
           ${recs.map(r => `
             <div class="card rec-card">
-              <div class="rec-name">${esc(r.sub)}</div>
+              <div class="rec-name">${linkWrap(redditUrl(r.sub), esc(r.sub))}</div>
               <div class="rec-tagline">${esc(r.tagline)}</div>
             </div>
           `).join('')}
@@ -328,7 +350,7 @@ function renderPodcasts(clusters) {
         <div class="rec-grid">
           ${en.map(r => `
             <div class="card rec-card">
-              <div class="rec-name">${esc(r.name)}</div>
+              <div class="rec-name">${linkWrap(podcastSearchUrl(r.name), esc(r.name))}</div>
               <div class="rec-meta">${esc(r.host)}</div>
               <div class="rec-tagline">${esc(r.tagline)}</div>
             </div>
@@ -336,7 +358,7 @@ function renderPodcasts(clusters) {
           ${zh.map(r => `
             <div class="card rec-card">
               <span class="crossover-badge" style="background:rgba(236,72,153,0.15);color:#ec4899">\u4E2D\u6587</span>
-              <div class="rec-name">${esc(r.name)}</div>
+              <div class="rec-name">${linkWrap(podcastSearchUrl(r.name), esc(r.name))}</div>
               <div class="rec-meta">${esc(r.host)}</div>
               <div class="rec-tagline">${esc(r.tagline)}</div>
             </div>
@@ -363,19 +385,19 @@ function renderGapSection(gapIds) {
     let items = '';
     if (activePlatform === 'bilibili') {
       items = [...(recs.crossover || []), ...(recs.native || [])].map(r =>
-        `<div class="card rec-card"><div class="rec-name">${esc(r.name)}</div><div class="rec-tagline">${esc(r.tagline)}</div></div>`
+        `<div class="card rec-card"><div class="rec-name">${linkWrap(bilibiliSearchUrl(r.search || r.name), esc(r.name))}</div><div class="rec-tagline">${esc(r.tagline)}</div></div>`
       ).join('');
     } else if (activePlatform === 'reddit') {
       items = recs.map(r =>
-        `<div class="card rec-card"><div class="rec-name">${esc(r.sub)}</div><div class="rec-tagline">${esc(r.tagline)}</div></div>`
+        `<div class="card rec-card"><div class="rec-name">${linkWrap(redditUrl(r.sub), esc(r.sub))}</div><div class="rec-tagline">${esc(r.tagline)}</div></div>`
       ).join('');
     } else if (activePlatform === 'podcasts') {
       items = recs.map(r =>
-        `<div class="card rec-card"><div class="rec-name">${esc(r.name)}</div><div class="rec-meta">${esc(r.host)}</div><div class="rec-tagline">${esc(r.tagline)}</div></div>`
+        `<div class="card rec-card"><div class="rec-name">${linkWrap(podcastSearchUrl(r.name), esc(r.name))}</div><div class="rec-meta">${esc(r.host)}</div><div class="rec-tagline">${esc(r.tagline)}</div></div>`
       ).join('');
     } else {
       items = recs.map(r =>
-        `<div class="card rec-card"><div class="rec-name">${esc(r.topic)}</div><div class="rec-tagline">${esc(r.channels)}</div></div>`
+        `<div class="card rec-card"><div class="rec-name">${linkWrap(youtubeSearchUrl(r.topic), esc(r.topic))}</div><div class="rec-tagline">${esc(r.channels)}</div></div>`
       ).join('');
     }
 
@@ -415,7 +437,11 @@ function exportMarkdown() {
       const recs = llm.youtube?.[c.id];
       if (!recs?.length) return;
       md += `### ${c.label}\n`;
-      recs.forEach(r => { md += `- **${r.topic || r.name || ''}**: ${r.channels || r.tagline || ''}\n`; });
+      recs.forEach(r => {
+        const name = r.topic || r.name || '';
+        const query = r.topic || r.channels || name;
+        md += `- **[${name}](${youtubeSearchUrl(query)})**: ${r.channels || r.tagline || ''}\n`;
+      });
       md += '\n';
     });
 
@@ -424,7 +450,7 @@ function exportMarkdown() {
       const recs = llm.reddit?.[c.id];
       if (!recs?.length) return;
       md += `### ${c.label}\n`;
-      recs.forEach(r => { md += `- **${r.sub}**: ${r.tagline}\n`; });
+      recs.forEach(r => { md += `- **[${r.sub}](${redditUrl(r.sub)})**: ${r.tagline}\n`; });
       md += '\n';
     });
 
@@ -434,8 +460,8 @@ function exportMarkdown() {
       const zh = llm.podcasts_zh?.[c.id] || [];
       if (!en.length && !zh.length) return;
       md += `### ${c.label}\n`;
-      en.forEach(r => { md += `- **${r.name}** (${r.host}): ${r.tagline}\n`; });
-      zh.forEach(r => { md += `- **${r.name}** (${r.host}): ${r.tagline}\n`; });
+      en.forEach(r => { md += `- **[${r.name}](${podcastSearchUrl(r.name)})** (${r.host}): ${r.tagline}\n`; });
+      zh.forEach(r => { md += `- **[${r.name}](${podcastSearchUrl(r.name)})** (${r.host}): ${r.tagline}\n`; });
       md += '\n';
     });
   } else {
@@ -445,7 +471,7 @@ function exportMarkdown() {
       const recs = YOUTUBE_RECS[c.id];
       if (!recs?.length) return;
       md += `### ${c.label}\n`;
-      recs.forEach(r => { md += `- **${r.topic}**: ${r.channels}\n`; });
+      recs.forEach(r => { md += `- **[${r.topic}](${youtubeSearchUrl(r.topic)})**: ${r.channels}\n`; });
       md += '\n';
     });
 
@@ -455,7 +481,7 @@ function exportMarkdown() {
       if (!recs) return;
       md += `### ${c.label}\n`;
       [...(recs.crossover || []), ...(recs.native || [])].forEach(r => {
-        md += `- **${r.name}**: ${r.tagline} (search: ${r.search})\n`;
+        md += `- **[${r.name}](${bilibiliSearchUrl(r.search || r.name)})**: ${r.tagline} (search: ${r.search})\n`;
       });
       md += '\n';
     });
@@ -465,7 +491,7 @@ function exportMarkdown() {
       const recs = REDDIT_RECS[c.id];
       if (!recs?.length) return;
       md += `### ${c.label}\n`;
-      recs.forEach(r => { md += `- **${r.sub}**: ${r.tagline}\n`; });
+      recs.forEach(r => { md += `- **[${r.sub}](${redditUrl(r.sub)})**: ${r.tagline}\n`; });
       md += '\n';
     });
 
@@ -475,8 +501,8 @@ function exportMarkdown() {
       const zh = PODCAST_ZH_RECS[c.id] || [];
       if (!en.length && !zh.length) return;
       md += `### ${c.label}\n`;
-      en.forEach(r => { md += `- **${r.name}** (${r.host}): ${r.tagline}\n`; });
-      zh.forEach(r => { md += `- **${r.name}** (${r.host}): ${r.tagline}\n`; });
+      en.forEach(r => { md += `- **[${r.name}](${podcastSearchUrl(r.name)})** (${r.host}): ${r.tagline}\n`; });
+      zh.forEach(r => { md += `- **[${r.name}](${podcastSearchUrl(r.name)})** (${r.host}): ${r.tagline}\n`; });
       md += '\n';
     });
   }

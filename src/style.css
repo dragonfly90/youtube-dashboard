@@ -432,6 +432,14 @@ tr:hover td { background: var(--accent-glow); }
   font-size: 0.95rem;
   margin-bottom: 0.25rem;
 }
+.rec-card .rec-name a {
+  color: inherit;
+  text-decoration: none;
+}
+.rec-card .rec-name a:hover {
+  text-decoration: underline;
+  color: var(--accent);
+}
 .rec-card .rec-meta {
   font-size: 0.8rem;
   color: var(--text-muted);
