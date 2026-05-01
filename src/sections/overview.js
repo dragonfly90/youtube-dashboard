@@ -104,13 +104,30 @@ function updateLlmStatus(status) {
 
 function showLlmProgress(msg) {
   const area = document.getElementById('llm-status-area');
-  if (!area) return;
-  area.innerHTML = `
-    <div class="llm-status llm-working">
-      <span class="llm-spinner"></span>
-      <span>${msg}</span>
-    </div>
-  `;
+  if (area) {
+    area.innerHTML = `
+      <div class="llm-status llm-working">
+        <span class="llm-spinner"></span>
+        <span>${msg}</span>
+      </div>
+    `;
+  }
+
+  // Also update the global banner (visible from any section)
+  const banner = document.getElementById('llm-progress-banner');
+  if (banner) {
+    banner.hidden = false;
+    banner.classList.remove('done');
+    banner.innerHTML = `<span class="llm-spinner"></span><span>${msg}</span>`;
+  }
+}
+
+function hideLlmBanner() {
+  const banner = document.getElementById('llm-progress-banner');
+  if (!banner) return;
+  banner.classList.add('done');
+  banner.innerHTML = `<span>AI analysis complete!</span>`;
+  setTimeout(() => { banner.hidden = true; }, 3000);
 }
 
 function updateStats() {
@@ -213,17 +230,20 @@ function setupUpload() {
             ).then(success => {
               if (!success) {
                 // LLM failed, fall back to full worker parse
+                hideLlmBanner();
                 fallbackToKeywordClassification(reader.result, progressWrap, progressFill, progressText);
               } else {
                 progressFill.style.width = '100%';
                 progressText.textContent = 'AI analysis complete!';
-                updateLlmStatus('available');
+                hideLlmBanner();
+                updateLlmStatus(getLlmStatus());
                 setTimeout(() => {
                   progressWrap.classList.remove('active');
                   progressFill.style.width = '0%';
                 }, 2000);
               }
             }).catch(() => {
+              hideLlmBanner();
               fallbackToKeywordClassification(reader.result, progressWrap, progressFill, progressText);
             });
           });
