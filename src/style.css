@@ -805,6 +805,25 @@ tr:hover td { background: var(--accent-glow); }
 }
 
 /* ============================================================
+   Instagram
+   ============================================================ */
+.ig-upload-zone:hover,
+.ig-upload-zone.dragover {
+  border-color: #E1306C;
+  background: rgba(225, 48, 108, 0.1);
+}
+
+.ig-type-badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+/* ============================================================
    Mobile
    ============================================================ */
 @media (max-width: 768px) {

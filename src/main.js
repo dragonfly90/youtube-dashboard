@@ -15,6 +15,7 @@ const state = {
   currentSection: 'overview',
   clusterMeta: null,             // {id: {id, label, emoji, color}} — null for preloaded
   llmRecommendations: null,      // {youtube, bilibili, reddit, ...} — null for preloaded
+  instagramData: null,           // parsed Instagram export data
 };
 
 // Listeners are keyed by section name so we can clean them up on re-render
@@ -23,7 +24,7 @@ const sectionListeners = new Map(); // section -> [fn, ...]
 
 export function getState() { return state; }
 
-const PERSIST_KEYS = ['data', 'dataSource', 'clusterMeta', 'llmRecommendations'];
+const PERSIST_KEYS = ['data', 'dataSource', 'clusterMeta', 'llmRecommendations', 'instagramData'];
 
 export function setState(patch) {
   const dataChanged = 'data' in patch && patch.data !== state.data;
@@ -53,6 +54,7 @@ export function setState(patch) {
         dataSource: state.dataSource,
         clusterMeta: state.clusterMeta,
         llmRecommendations: state.llmRecommendations,
+        instagramData: state.instagramData,
       });
     }
   }
@@ -83,13 +85,14 @@ async function loadSection(name) {
       channels: () => import('./sections/channels.js'),
       trends:   () => import('./sections/trends.js'),
       recs:     () => import('./sections/recs.js'),
+      instagram: () => import('./sections/instagram.js'),
     }[name]?.());
     sectionModules[name] = mod;
   }
   return sectionModules[name];
 }
 
-const sectionNames = ['overview', 'timeline', 'clusters', 'channels', 'trends', 'recs'];
+const sectionNames = ['overview', 'timeline', 'clusters', 'channels', 'trends', 'recs', 'instagram'];
 const renderFnMap = {
   overview: 'renderOverview',
   timeline: 'renderTimeline',
@@ -97,6 +100,7 @@ const renderFnMap = {
   channels: 'renderChannels',
   trends:   'renderTrends',
   recs:     'renderRecs',
+  instagram: 'renderInstagram',
 };
 
 async function showSection(name) {
@@ -204,6 +208,7 @@ onAuthChange(async (user) => {
       dataSource: 'preloaded',
       clusterMeta: null,
       llmRecommendations: null,
+      instagramData: null,
       activeCluster: null,
     });
     sectionListeners.clear();
